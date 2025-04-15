@@ -10,32 +10,30 @@ sky = 69
 sun = 208
 red = 162
 
--- Utilities
+-- Utility
 at i f xs = [if i == j then f x else x | (j,x) <- zip [0..] xs]
-plural n word = show n <> " " <> word <> ['s' | n /= 1]
 
 -- Cards
 data Card = Hidden Char | Shown Bool Char deriving (Eq)
-suit c | c >= 'n' = ivy | c >= 'a' = sky | c >= 'N' = sun | otherwise = red
 ch (Hidden _) = '?'
 ch (Shown _ c) = c
 held (Hidden _) = False
 held (Shown h _) = h
+suit c | c >= 'n' = ivy | c >= 'a' = sky | c >= 'N' = sun | otherwise = red
 c ?< d = suit c == suit d && c < d
 c !< d = suit c == suit d && succ c == d
 c !<= d = c !< d || c == d
 
 -- Shuffling the deck
-toss n = (1103515245 * n + 12345) `mod` 1073741824
-rng n = tail $ iterate toss n
-shuffle rnds = map snd . sort . zip rnds
+rng n = tail $ iterate (\x -> (1103515245 * x + 12345) `mod` 1073741824) n
+shuffle ns = map snd . sort . zip ns
 suits = [['A'..'M'], ['N'..'Z'], ['a'..'m'], ['n'..'z']]
 deck = concat suits
 
 -- Initializing the game
-build (c:cs) = Shown False c : (Hidden <$> cs)
-layout (n:ns) deck = (build (take n deck):) <$> layout ns (drop n deck)
-layout [] deck = (deck, [])
+build (c:cs) = Shown False c : map Hidden cs
+layout (n:ns) d = (build (take n d):) <$> layout ns (drop n d)
+layout [] d = (d, [])
 game n = layout [4,4,3,3,4,4] $ shuffle (rng n) deck
 
 -- Selecting cards
@@ -68,7 +66,7 @@ peek (c:cs) = turn c : cs
 peek [] = []
 
 -- End of game
-cleared t suit = any (suit `isInfixOf`) (map (map ch) t)
+cleared t suit = or [suit `isInfixOf` map ch p | p <- t]
 won t = all (cleared t) suits
 
 -- Output
