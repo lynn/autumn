@@ -23,3 +23,4 @@ https://github.com/user-attachments/assets/a68a7939-4007-464d-b11b-a7a05f042682
 | `A-Za-z` | Grab cards (to grab `cde`, press `e`) |
 | `1-6` | Move cards to pile |
 | `~` | Deal cards from deck |
+| Ctrl-C | Quit game |
