@@ -5,10 +5,10 @@ import Data.Time.Clock
 import Data.List
 
 -- Colors
-ivy = "38;5;64"
-sky = "38;5;69"
-sun = "38;5;208"
-red = "38;5;162"
+ivy = 64
+sky = 69
+sun = 208
+red = 162
 
 -- Utilities
 at i f xs = [if i == j then f x else x | (j,x) <- zip [0..] xs]
@@ -16,7 +16,7 @@ plural n word = show n <> " " <> word <> ['s' | n /= 1]
 
 -- Cards
 data Card = Hidden Char | Shown Bool Char deriving (Eq)
-suit c | c>='n'=ivy | c>='a'=sky | c>='N'=sun | otherwise=red
+suit c | c >= 'n' = ivy | c >= 'a' = sky | c >= 'N' = sun | otherwise = red
 ch (Hidden _) = '?'
 ch (Shown _ c) = c
 held (Hidden _) = False
@@ -59,7 +59,7 @@ legal i t = i < length t && hand t `likes` (t!!i)
 try i t = if legal i t then move i t else t
 
 -- Dealing more cards
-deal (d,t,n) | (p,q) <- splitAt 6 d = (q, zipWith (:) (Shown False <$> p) t, n+1)
+deal (d,t) = (drop 6 d, zipWith (:) (Shown False <$> take 6 d) t)
 
 -- Revealing cards
 turn (Hidden c) = Shown False c
@@ -76,29 +76,30 @@ clear = "\ESC[2J\ESC[H\n    autumn leaves\n"
 paint c s = "\ESC[" <> c <> "m" <> s <> "\ESC[0m"
 mark b = if b then ";7" else ""
 sprite (Hidden c) = paint "2" "?"
-sprite (Shown h c) = paint (suit c <> mark h) [c]
+sprite (Shown h c) = paint ("38;5;" <> show (suit c) <> mark h) [c]
 runs [] = [[]]
 runs (c:cs) = case runs cs of { (x:y):z | ch c !<= ch x -> (c:x:y):z; r -> [c]:r }
 row name p = "    " <> name <> " " <> unwords (concatMap sprite <$> runs p)
 header i t = paint (mark $ legal i t) (show $ i+1)
 tableau t = unlines [row (header i t) r | (i,r) <- zip [0..] t]
-talon d = "    ~ " <> (plural (length d `div` 6) "deal" <> " left")
+talon d = "    ~ deal (" <> show (length d `div` 6) <> " left)"
 
 -- Input
-act (d,t,n) k | isDigit k, k > '0' = (d, try (digitToInt k - 1) t, n+1)
-act (d,t,n) k | isAlpha k = (d, grab k <$> t, n)
-act (d,t,n) ' ' = (d, map dim <$> t, n)
-act (d,t,n) '~' | d /= [] = deal (d, map dim <$> t, n)
-act (d,t,n) _ = (d,t,n)
+act ((d,t):h) k | isDigit k, k > '0' = (d, try (digitToInt k - 1) t) : (d,t):h
+act ((d,t):h) k | isAlpha k = (d, grab k <$> t):h
+act ((d,t):h) ' ' = (d, map dim <$> t):h
+act ((d,t):h) '~' | d /= [] = deal (d, map dim <$> t) : (d,t):h
+act ((d,t):h) '\\' | h /= [] = h
+act ((d,t):h) _ = (d,t):h
 
 -- Game loop
-view d t = putStrLn (clear <> "\n" <> tableau t <> "\n" <> talon d)
-yay n = putStrLn ("Completed in " <> show n <> " turns.")
-play s@(d,t,n) = view d t >> if won t then yay n else (getChar >>= play . act s)
+view d t = putStr $ unlines [clear, tableau t, talon d, "    \\ undo"]
+yay s = putStrLn ("Completed in " <> show (length s - 1) <> " moves.")
+play s@((d,t):_) = view d t >> if won t then yay s else (getChar >>= play . act s)
 
 -- Main
 setup = hSetBuffering stdin NoBuffering
-begin n = let (d,t) = game n in play (d,t,0)
+begin n = let (d,t) = game n in play [(d,t)]
 seed [] = diffTimeToPicoseconds . utctDayTime <$> getCurrentTime
 seed [x] = pure (read x)
 main = setup >> getArgs >>= seed >>= begin
