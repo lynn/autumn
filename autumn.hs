@@ -86,7 +86,7 @@ talon d = "    ~ " <> (plural (length d `div` 6) "deal" <> " left")
 
 -- Input
 act (d,t,n) k | isDigit k, k > '0' = (d, try (digitToInt k - 1) t, n+1)
-act (d,t,n) k | isAlpha k = (d, grab k <$> t, n+1)
+act (d,t,n) k | isAlpha k = (d, grab k <$> t, n)
 act (d,t,n) ' ' = (d, map dim <$> t, n)
 act (d,t,n) '~' | d /= [] = deal (d, map dim <$> t, n)
 act (d,t,n) _ = (d,t,n)
