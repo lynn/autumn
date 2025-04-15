@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/a68a7939-4007-464d-b11b-a7a05f042682
 
 | Key | Action |
 | --- | --- |
-| `A-Za-z` | Grab cards (to grab `cde`, press `e`) |
-| `1-6` | Move cards to pile |
-| `~` | Deal cards from deck |
-| Ctrl-C | Quit game |
+| <kbd>A–Z</kbd>, <kbd>a–z</kbd> | Grab cards (to grab `cde`, press `e`) |
+| <kbd>1–6</kbd> | Move cards to pile |
+| <kbd>~</kbd> | Deal cards from deck |
+| <kbd>Ctrl-C</kbd> | Quit game |
