@@ -8,7 +8,7 @@ Compile like `ghc autumn.hs` on Unix and `ghc -rtsopts -with-rtsopts="--io-manag
 
 Then, run `./autumn` to start a random game or `./autumn 123` to play a fixed seed.
 
-https://github.com/user-attachments/assets/a84f1c9c-6ded-4ca2-9dff-d7cef60d7b1b
+https://github.com/user-attachments/assets/a68a7939-4007-464d-b11b-a7a05f042682
 
 ## How to play
 
