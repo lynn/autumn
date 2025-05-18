@@ -2,9 +2,9 @@
 
 I wrote a game in a strange style of Haskell where every definition fits on one line. I'm not sure why I did this, but it looks kind of pretty.
 
-Can code be split into "prose" and "poetry"? It's not exactly code golf: I can think of many ways to make it smaller. But I'd like to think of this program as a poem, and this restriction as its meter. I'd never write a "real" program in this style, but only for the same reason that my documentation isn't made of rhyming iambic verse.
+It's not exactly code golf: I can think of many ways to make it smaller. But I'd like to think of this program as a poem. I'd never write a _real_ program in this style, but only for the same reason that I wouldn't write documentation in rhyming iambic meter. Can code be "prose" and "poetry"?
 
-Here's how it works.
+Anyway, here's how the program works.
 
 ## Preamble
 
@@ -18,9 +18,9 @@ import Data.Time.Clock
 import Data.List
 ```
 
-I didn't want this program to have any imports beyond "base", so I will deal with pseudorandom number generation and terminal graphics by hand.
+I wanted this program to be light on the imports, and so I deal with pseudorandom number generation and terminal graphics by hand.
 
-The cards are divided into four suits. Rather than define an `enum` for them, I take the shortcut of just using the [terminal color numbers](https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit) as the representation of the suits. I give them all three-letter names because that's pretty. But they are simply green, blue, orange, and red.
+The cards are divided into four suits. Rather than define an `enum` for them, I take the shortcut of just using the [terminal color numbers](https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit) as the representation of the suits. I give them all three-letter names because that's pretty.
 
 ```hs
 -- Colors
@@ -38,9 +38,11 @@ at i f xs = [if i == j then f x else x | (j,x) <- zip [0..] xs]
 
 ## Cards
 
-Autumn Leaves is a solitaire card game, and solitaire card games are made up of cards. A card can be face-down (`Hidden`) or face-up (`Shown`); if it is face-up, it may further be "held" (targeted by the current move / rendered with inverted color), which is really more of a UI concern than part of the game logic, but here I've intertwined them a little, so that the UI state and the tableau state are one and the same.
+Autumn Leaves is a solitaire card game, and solitaire card games are made up of cards.
 
-The "face" of a card is just a `Char`. Face-down cards are shown as `?` and face-up cards are shown as their face.
+A card can be face-down (`Hidden`) or face-up (`Shown`). If it is face-up, it may further be "held" (i.e. targeted by the current move / rendered with inverted color), which is really more of a UI concern than part of the game logic. I've intertwined those concerns a little so that the UI state and the tableau state are one and the same.
+
+The "face" of a card is just a `Char`. The function `ch` gives us a look at a card; face-down cards are shown as `?` and face-up cards are shown as their face.
 
 ```hs
 -- Cards
@@ -59,26 +61,28 @@ suit c | c >= 'n' = ivy | c >= 'a' = sky | c >= 'N' = sun | otherwise = red
 
 We define some relations on card-faces. They are operators because I like how that looks.
 
-* `c ?< d` is the "precedes" relation, meaning `c < d` and they have the same suit (thus `c` may be moved onto `d`).
-* `c !< d` is the "precedes immediately" relation, meaning they meld together into a run.
-* `c !<= d` is the "precedes immediately or equals" relation. This is used to print `????` together when displaying runs.
-
 ```hs
 c ?< d = suit c == suit d && c < d
 c !< d = suit c == suit d && succ c == d
 c !<= d = c !< d || c == d
 ```
 
+* `c ?< d` is the "precedes" relation, meaning `c < d` and they have the same suit (thus `c` may be moved onto `d`).
+* `c !< d` is the "precedes immediately" relation, meaning they meld together into a run.
+* `c !<= d` is the "precedes immediately or equals" relation. This is used to print `????` together when displaying runs.
+
+Note that passing `'?'` into `!<=` by using it with `ch` (as I do in `runs`) is kind of nonsense in the first place. `'?'` isn't a real card face! `suit` will report its suit as `red`, which is just totally bogus. But it keeps the implementation small, and so I'm okay with this little pun.
+
 ## Shuffling the deck 
 
-To shuffle the deck, we'll need random numbers. A simple [linear congruence generator](https://en.wikipedia.org/wiki/Linear_congruential_generator) is fine. `rng` makes a stream of random integers modulo something huge, starting from a seed value. Then `shuffle` shuffles a list by sorting it using the random stream as keys.
+To shuffle the deck, we'll need random numbers. A simple [linear congruence generator](https://en.wikipedia.org/wiki/Linear_congruential_generator) is fine. `rng` makes a stream of random integers modulo something huge, starting from a seed value. Then `shuffle` shuffles a list, by sorting it using a stream of random values as keys.
 
 ```hs
 rng n = tail $ iterate (\x -> (1103515245 * x + 12345) `mod` 1073741824) n
 shuffle ns = map snd . sort . zip ns
 ```
 
-The deck consists of these four suits stacked together. We could just write `deck = ['A'..'Z'] ++ ['a'..'z']`, but we'll use `suits` later.
+The deck consists of our four suits stacked together. We could just write `deck = ['A'..'Z'] ++ ['a'..'z']`, but we'll use `suits` later when detecting if the game is won.
 
 ```hs
 suits = [['A'..'M'], ['N'..'Z'], ['a'..'m'], ['n'..'z']]
@@ -87,9 +91,9 @@ deck = concat suits
 
 ## Initializing the game
 
-These functions build the initial layout, consisting of piles of 4-4-3-3-4-4 with the top card of each pile revealed.
+These functions build the initial layout, consisting of piles of size 4-4-3-3-4-4, with the top card of each pile revealed.
 
-`game n` returns the layout of the game with seed `n`, by shuffling the deck with that seed and dealing out the piles. It returns a `([Card], [[Card]])`: the "stock" (rest of the deck) paired with the "tableau" (list of six piles).
+`game n` returns the layout of the game with seed `n`, by shuffling the deck with that seed and dealing out the piles. It returns a `([Card], [[Card]])`: the "stock" (rest of the deck) paired with the "tableau" (a list of six piles).
 
 ```hs
 build (c:cs) = Shown False c : map Hidden cs
@@ -100,14 +104,14 @@ game n = layout [4,4,3,3,4,4] $ shuffle (rng n) deck
 
 ## Selecting cards
 
-Here the game logic begins. We say that a face char `c` is "atop" a pile if it is in the first run of that pile, and thus can be grabbed. For example, `'e'` is atop `"cdefi"` (runs: `cdef` `i`), but it is not atop `"cQefi"` (runs: `c` `Q` `ef` `i`).
+We say that a face char `c` is "atop" a pile if it is in the first run of that pile, and thus can be grabbed. For example, `'e'` is atop `"cdefi"` (runs: `cdef` `i`), but it is not atop `"cQefi"` (runs: `c` `Q` `ef` `i`).
 
 ```hs
 c `atop` [] = False
 c `atop` cs@(x:_) = x <= c && [x..c] `isPrefixOf` cs
 ```
 
-`dim` makes cards un-held, and `lit` makes them held. These names refer to the cards "lighting up" when held and "dimming" when put back down. These functions ignore face-down cards.
+`dim` makes cards un-held, and `lit` makes them held. Their names refer to the cards "lighting up" when held, and "dimming" when put back down. Both functions ignore face-down cards.
 
 ```hs
 dim (Shown _ c) = Shown False c
@@ -116,7 +120,7 @@ lit (Shown _ c) = Shown True c
 lit c = c
 ```
 
-To `reach` at a character `c` in a pile of cards `x:xs` is to light up the card with that character and all the cards before it. Its implementation recurses until it finds `c`:
+To `reach` at a character `c` in a pile of cards `x:xs` means to light up the card with that character, and all the cards above it in the pile. Its implementation recurses until it finds `c`:
 
 ```hs
 reach c [] = []
@@ -220,7 +224,7 @@ This code is mostly unremarkable. `clear`, `tableau t`, and `stock s` are all st
 
 The game state is a stock-and-tableau pair `(s,t)`. We will manage a whole list of these to support "undo". The pattern `(s,t):h` matches the current stock, current tableau, and history.
 
-The `act` function discriminates on various keys the player might press and updates the game state accordingly. Digits perform moves, pushing the result of `try` to the history. Letters select cards, overwriting the top state in the history. Space unselects cards. Tilde deals out cards from the stock to the tableau if possible. Backslash is undo. All other keys leave the game state unchanged.
+The `act` function discriminates on various keys the player might press and updates the game state accordingly. Digits perform moves, pushing the result of `try` to the history. Letters `grab` cards, overwriting the top state in the history. Space unselects cards. Tilde `deal`s out cards from the stock to the tableau if possible. Backslash is undo: it just pops the history. All other keys leave the game state unchanged.
 
 ```hs
 act ((s,t):h) k | isDigit k, k > '0' = (s, try (digitToInt k - 1) t) : (s,t):h
@@ -231,9 +235,11 @@ act ((s,t):h) '\\' | h /= [] = h
 act ((s,t):h) _ = (s,t):h
 ```
 
+Later, we'll use the length of the history as a sort of "final score", implicitly rewarding the player for finishing the game in the fewest number of moves. So (I now notice) it's a little wrong (or just cruel) to push to the history even if `try` returns `t` unchanged.
+
 ## Game loop
 
-Let's define `view` to show the game UI, and `yay` to print a win message:
+Let's define `view` to show the full game UI, and `yay` to print a win message:
 
 ```hs
 view s t = putStr $ unlines [clear, tableau t, stock s, "    \\ undo"]
